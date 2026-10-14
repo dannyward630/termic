@@ -20471,7 +20471,31 @@ pub fn dlog(msg: &str) {
         let _ = writeln!(f, "[{}] {}", chrono::Utc::now().format("%H:%M:%S%.3f"), msg);
     }
     // Also echo to stderr so `npm run tauri:dev` foreground shows it.
-    eprintln!("{msg}");
+    echo_to_stderr(std::io::stderr().lock(), msg);
+}
+
+fn echo_to_stderr(mut stderr: impl std::io::Write, msg: &str) {
+    let _ = writeln!(stderr, "{msg}");
+}
+
+#[cfg(test)]
+mod dlog_tests {
+    struct BrokenPipeWriter;
+
+    impl std::io::Write for BrokenPipeWriter {
+        fn write(&mut self, _buf: &[u8]) -> std::io::Result<usize> {
+            Err(std::io::ErrorKind::BrokenPipe.into())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn stderr_write_error_does_not_panic() {
+        super::echo_to_stderr(BrokenPipeWriter, "a GUI-launched app has no stderr reader");
+    }
 }
 
 #[tauri::command]
